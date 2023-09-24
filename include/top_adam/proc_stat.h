@@ -1,6 +1,8 @@
 #ifndef __PROC_STAT_H
 #define __PROC_STAT_H
 
+#include <stdio.h>
+
 typedef struct proc_stat_cpu_info proc_stat_cpu_info;
 struct proc_stat_cpu_info {
 	int cpu_id;
@@ -16,5 +18,12 @@ struct proc_stat_cpu_info {
 	unsigned long long int guest;
 	unsigned long long int guest_nice;
 };
+
+
+// reads one line from proc stat and puts results in the proc_stat_cpu_info struct
+int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream);
+
+// takes the proc stat struct and analyzes it to get cpu percentage
+double analyze_proc_stat_cpu_info(proc_stat_cpu_info const*const cpu_stats);
 
 #endif
