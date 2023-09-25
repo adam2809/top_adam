@@ -20,6 +20,8 @@ int main(int argc, char **argv) {
 void test_get_next_proc_stat_cpu_info_seven_fields(){
 	proc_stat_cpu_info cpu0_info;
 	proc_stat_cpu_info cpu1_info;
+	init_proc_stat_cpu_info(&cpu0_info);
+	init_proc_stat_cpu_info(&cpu1_info);
 
 	FILE *fptr = fopen(PROC_STAT_SEVEN_FIELDS_PATH,"r");
 	assert(fptr != 0);
@@ -62,6 +64,8 @@ void test_get_next_proc_stat_cpu_info_seven_fields(){
 void test_get_next_proc_stat_cpu_info_ten_fields(){
 	proc_stat_cpu_info cpu0_info;
 	proc_stat_cpu_info cpu1_info;
+	init_proc_stat_cpu_info(&cpu0_info);
+	init_proc_stat_cpu_info(&cpu1_info);
 
 	FILE *fptr = fopen(PROC_STAT_TEN_FIELDS_PATH,"r");
 	assert(fptr != 0);

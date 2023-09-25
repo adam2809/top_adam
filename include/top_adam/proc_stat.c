@@ -1,5 +1,9 @@
 #include "proc_stat.h"
 
+int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info){
+	memset(cpu_info,0,sizeof(proc_stat_cpu_info));
+}
+
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const res, int n, FILE *stream){
 	return 0;
 }
