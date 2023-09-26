@@ -25,6 +25,6 @@ int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info);
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream);
 
 // takes the proc stat struct and analyzes it to get cpu percentage
-double analyze_proc_stat_cpu_info(proc_stat_cpu_info const*const cpu_stats);
+double analyze_proc_stat_cpu_info(proc_stat_cpu_info* next,proc_stat_cpu_info* prev);
 
 #endif

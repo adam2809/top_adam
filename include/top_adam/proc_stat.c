@@ -84,6 +84,23 @@ char* read_proc_stat_line(size_t size, char s[restrict size], FILE* restrict str
 	return ret;
 }
 
-double analyze_proc_stat_cpu_info(proc_stat_cpu_info const*const cpu_stats){
-	return 0.0;
+double analyze_proc_stat_cpu_info(proc_stat_cpu_info* next,proc_stat_cpu_info* prev){
+	if (memcmp(prev,next,sizeof(proc_stat_cpu_info)) == 0)
+	{
+		return -1;
+	}
+	
+	unsigned long long prev_idle = prev->idletime + prev->iowait;
+	unsigned long long idle = next->idletime + next->iowait;
+
+	unsigned long long prev_non_idle = prev->usertime + prev->nicetime + prev->systemtime + prev->irq + prev->softirq + prev->steal;
+	unsigned long long non_idle = next->usertime + next->nicetime + next->systemtime + next->irq + next->softirq + next->steal;
+
+	unsigned long long prev_total = prev_idle + prev_non_idle;
+	unsigned long long total = idle + non_idle;
+
+	unsigned long long totald = total - prev_total;
+	unsigned long long idled = idle - prev_idle;
+
+	return (totald - idled)/ (double) totald;
 }
