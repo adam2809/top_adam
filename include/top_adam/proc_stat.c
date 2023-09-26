@@ -1,11 +1,16 @@
 #include "proc_stat.h"
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+
+#define PROC_STAT_CPU_PREFIX "cpu"
+#define PROC_STAT_CPU_PREFIX_STRLEN (sizeof(PROC_STAT_CPU_PREFIX)-1)
+
+char* read_proc_stat_line(size_t size, char s[restrict size], FILE* restrict stream);
+int read_proc_stat_prefix(char s[PROC_STAT_CPU_PREFIX_STRLEN], FILE* restrict stream);
 
 int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info){
 	memset(cpu_info,0,sizeof(proc_stat_cpu_info));
-}
-
-int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const res, int n, FILE *stream){
-	return 0;
 }
 
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream){
