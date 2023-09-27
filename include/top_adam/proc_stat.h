@@ -17,6 +17,8 @@ struct proc_stat_cpu_info {
 	unsigned long long int steal;
 	unsigned long long int guest;
 	unsigned long long int guest_nice;
+
+	double cpu_usage_percent;
 };
 
 int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info);

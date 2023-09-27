@@ -11,6 +11,7 @@ int read_proc_stat_prefix(char s[PROC_STAT_CPU_PREFIX_STRLEN], FILE* restrict st
 
 int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info){
 	memset(cpu_info,0,sizeof(proc_stat_cpu_info));
+	cpu_info->cpu_usage_percent = -1.0;
 }
 
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream){
