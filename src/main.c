@@ -1,5 +1,8 @@
 #include <threads.h>
+#include <stdio.h>
 #include "ta_queue.h"
+
+#define PROC_STAT_FILE_PATH "/proc/stat"
 
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
@@ -7,6 +10,8 @@ int printer_thread(void* arg);
 
 ta_queue* cpu_info_queue;
 ta_queue* prev_cpu_info_queue;
+
+FILE* proc_stat_file_ptr;
 
 int reader_fun(void* arg){
 
@@ -30,6 +35,11 @@ int main(int argc, char **argv) {
 	prev_cpu_info_queue = ta_queue_new();
 
 	if(!cpu_info_queue || !prev_cpu_info_queue){
+		return 1;
+	}
+
+	proc_stat_file_ptr = fopen(PROC_STAT_FILE_PATH,"r");
+	if(!proc_stat_file_ptr){
 		return 1;
 	}
 
