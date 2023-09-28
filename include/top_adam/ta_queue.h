@@ -21,6 +21,7 @@ ta_queue *ta_queue_new(int max_len);
 void* ta_queue_append(ta_queue* queue,void* val);
 void *ta_queue_pop(ta_queue *queue);
 void ta_queue_destroy(ta_queue *queue);
+void* ta_queue_elem(ta_queue *queue, int n);
 int ta_queue_is_empty(ta_queue *queue);
 
 #endif

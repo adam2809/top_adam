@@ -78,6 +78,23 @@ void ta_queue_destroy(ta_queue *queue)
 	free(queue);
 }
 
+void* ta_queue_elem(ta_queue *queue, int n){
+	ta_node* elem = queue->start;
+
+	while(n != 0 && elem != 0){
+		elem = elem->next;
+		n--;
+	}
+
+	if (!elem)
+	{
+		return 0;
+	}else{
+		return elem->val;
+	}
+	
+}
+
 int ta_queue_is_empty(ta_queue *queue){
 	return queue->start == 0;
 }
