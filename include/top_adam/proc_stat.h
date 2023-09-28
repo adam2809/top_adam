@@ -22,6 +22,7 @@ struct proc_stat_cpu_info {
 };
 
 int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info);
+proc_stat_cpu_info* new_proc_stat_cpu_info();
 
 // reads one line from proc stat and puts results in the proc_stat_cpu_info struct
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream);

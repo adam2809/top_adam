@@ -14,6 +14,12 @@ int init_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info){
 	cpu_info->cpu_usage_percent = -1.0;
 }
 
+proc_stat_cpu_info* new_proc_stat_cpu_info(){
+	proc_stat_cpu_info* new = malloc(sizeof(proc_stat_cpu_info));
+	init_proc_stat_cpu_info(new);
+	return new;
+}
+
 int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size, FILE* stream){
 	int ret;
 	int next_cpu_id = -1;
