@@ -19,7 +19,7 @@ ta_queue *ta_queue_new(int max_len)
 
 void *ta_queue_append(ta_queue *queue, void *val)
 {
-	if (queue->max_len !=-1 && queue->len >= queue->max_len)
+	if (queue->max_len !=-1 && ta_queue_is_full(queue))
 	{
 		return 0;
 	}
@@ -115,6 +115,10 @@ void* ta_queue_elem(ta_queue *queue, int n){
 
 int ta_queue_is_empty(ta_queue *queue){
 	return queue->start == 0;
+}
+
+int ta_queue_is_full(ta_queue *queue){
+	return queue->len >= queue->max_len;
 }
 
 void* ta_queue_find(ta_queue *queue, int (*cmp)(void*)){
