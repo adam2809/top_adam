@@ -19,6 +19,11 @@ int is_cpu_info_unanalyzed(void* elem);
 ta_queue* cpu_info_queue;
 ta_queue* prev_cpu_info_queue;
 
+mtx_t cpu_info_queue_mtx;
+cnd_t cpu_info_queue_full_cnd;
+cnd_t cpu_info_queue_empty_cnd;
+cnd_t cpu_info_queue_head_analyzed_cnd;
+
 FILE* proc_stat_file_ptr;
 
 int reader_fun(void* arg){
@@ -106,6 +111,11 @@ int main(int argc, char **argv) {
 
 	cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
 	prev_cpu_info_queue = ta_queue_new(-1);
+
+	mtx_init(&cpu_info_queue_mtx, mtx_plain);
+	cnd_init(&cpu_info_queue_full_cnd);
+	cnd_init(&cpu_info_queue_full_cnd);
+	cnd_init(&cpu_info_queue_head_analyzed_cnd);
 
 	if(!cpu_info_queue || !prev_cpu_info_queue){
 		return 1;
