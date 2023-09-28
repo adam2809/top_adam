@@ -98,3 +98,19 @@ void* ta_queue_elem(ta_queue *queue, int n){
 int ta_queue_is_empty(ta_queue *queue){
 	return queue->start == 0;
 }
+
+void* ta_queue_find(ta_queue *queue, int (*cmp)(void*)){
+	if(ta_queue_is_empty(queue)){
+		return 0;
+	}
+
+	ta_node* elem = queue->start;
+	while(elem){
+		if(cmp(elem)){
+			return elem->val;
+		}
+		elem = elem->next;
+	}
+
+	return 0;
+}
