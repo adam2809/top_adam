@@ -1,6 +1,7 @@
 #include <threads.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "ta_queue.h"
 #include "proc_stat.h"
 
@@ -10,6 +11,8 @@
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
 int printer_thread(void* arg);
+
+int is_cpu_info_unanalyzed(void* elem);
 
 ta_queue* cpu_info_queue;
 ta_queue* prev_cpu_info_queue;
@@ -48,7 +51,30 @@ int reader_fun(void* arg){
 }
 
 int analyzer_fun(void* arg){
+	proc_stat_cpu_info* next;
+	proc_stat_cpu_info* prev;
 
+	while (1)
+	{
+		next = ta_queue_find(cpu_info_queue,is_cpu_info_unanalyzed);
+		if(!next){
+			continue;
+		}
+
+		prev = ta_queue_elem(prev_cpu_info_queue,next->cpu_id);
+		if (!prev)
+		{
+			proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
+			memcpy(prev_new,next,sizeof(proc_stat_cpu_info));
+			ta_queue_append(prev_cpu_info_queue,prev_new);
+		}
+		next->cpu_usage_percent = analyze_proc_stat_cpu_info(next, prev);
+	}
+}
+
+int is_cpu_info_unanalyzed(void* elem){
+	proc_stat_cpu_info* cpu_info = elem;
+	return cpu_info->cpu_usage_percent < 0;
 }
 
 int printer_fun(void* arg){
