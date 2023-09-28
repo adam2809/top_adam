@@ -7,17 +7,23 @@ ta_node *ta_queue_new_node(){
 	return calloc(1,sizeof(ta_node));
 }
 
-ta_queue *ta_queue_new()
+ta_queue *ta_queue_new(int max_len)
 {
 	ta_queue *new = malloc(sizeof(ta_queue));
 	new->start = 0;
 	new->end = 0;
 	new->len = 0;
+	new->max_len = max_len;
 	return new;
 }
 
 void *ta_queue_append(ta_queue *queue, void *val)
 {
+	if (queue->max_len !=-1 && queue->len >= queue->max_len)
+	{
+		return 0;
+	}
+	
 	ta_node *old_end = queue->end;
 	ta_node *new_node = ta_queue_new_node();
 	if (!new_node)
