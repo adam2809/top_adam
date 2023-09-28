@@ -60,6 +60,11 @@ void *ta_queue_pop(ta_queue *queue)
 
 	return ret;
 }
+
+void* ta_queue_peek(ta_queue *queue){
+	return ta_queue_elem(queue,0);
+}
+
 void ta_queue_destroy(ta_queue *queue)
 {
 	ta_node *node;

@@ -22,6 +22,7 @@ void* ta_queue_append(ta_queue* queue,void* val);
 void *ta_queue_pop(ta_queue *queue);
 void ta_queue_destroy(ta_queue *queue);
 void* ta_queue_elem(ta_queue *queue, int n);
+void* ta_queue_peek(ta_queue *queue);
 void* ta_queue_find(ta_queue *queue, int (*cmp)(void*));
 int ta_queue_is_empty(ta_queue *queue);
 
