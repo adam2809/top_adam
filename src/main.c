@@ -1,8 +1,11 @@
 #include <threads.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "ta_queue.h"
+#include "proc_stat.h"
 
 #define PROC_STAT_FILE_PATH "/proc/stat"
+#define PROC_STAT_MAX_LINE_LEN 1000
 
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
@@ -14,7 +17,34 @@ ta_queue* prev_cpu_info_queue;
 FILE* proc_stat_file_ptr;
 
 int reader_fun(void* arg){
+	while(1){
+		if(!proc_stat_file_ptr){
+			proc_stat_file_ptr = fopen(PROC_STAT_FILE_PATH,"r");
+		}
+		if(!proc_stat_file_ptr){
+			return 1;
+		}
 
+		proc_stat_cpu_info* cpu_info_ptr = new_proc_stat_cpu_info();
+		if(cpu_info_ptr == 0){
+			continue;
+		}
+
+		int res = get_next_proc_stat_cpu_info(cpu_info_ptr,PROC_STAT_MAX_LINE_LEN,proc_stat_file_ptr);
+		if(res == -1){
+			free(cpu_info_ptr);
+			continue;
+		}
+		if(res == 0){
+			free(cpu_info_ptr);
+			fclose(proc_stat_file_ptr);
+			proc_stat_file_ptr = 0;
+			printf("-------------------\n");
+			continue;
+		}
+		ta_queue_append(cpu_info_queue, cpu_info_ptr);
+		printf("cpu%d %llu\n", cpu_info_ptr->cpu_id, cpu_info_ptr->usertime);
+	}
 }
 
 int analyzer_fun(void* arg){
@@ -38,10 +68,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	proc_stat_file_ptr = fopen(PROC_STAT_FILE_PATH,"r");
-	if(!proc_stat_file_ptr){
-		return 1;
-	}
 
 	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, 0);
 	if(thrd_create_ret != thrd_success){
