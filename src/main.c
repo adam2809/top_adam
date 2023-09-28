@@ -8,6 +8,8 @@
 #define PROC_STAT_FILE_PATH "/proc/stat"
 #define PROC_STAT_MAX_LINE_LEN 1000
 
+#define MAX_CPU_INFO_QUEUE_LEN 1000
+
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
 int printer_thread(void* arg);
@@ -102,8 +104,8 @@ int main(int argc, char **argv) {
 	thrd_t printer_thrd;
 	int thrd_create_ret;
 
-	cpu_info_queue = ta_queue_new();
-	prev_cpu_info_queue = ta_queue_new();
+	cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
+	prev_cpu_info_queue = ta_queue_new(-1);
 
 	if(!cpu_info_queue || !prev_cpu_info_queue){
 		return 1;
