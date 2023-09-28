@@ -77,3 +77,7 @@ void ta_queue_destroy(ta_queue *queue)
 
 	free(queue);
 }
+
+int ta_queue_is_empty(ta_queue *queue){
+	return queue->start == 0;
+}
