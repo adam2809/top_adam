@@ -78,7 +78,22 @@ int is_cpu_info_unanalyzed(void* elem){
 }
 
 int printer_fun(void* arg){
+	proc_stat_cpu_info* cpu_info_queue_head;
+	proc_stat_cpu_info* cpu_info_queue_next;
 
+	while (1)
+	{
+		do{
+			cpu_info_queue_head = ta_queue_peek(cpu_info_queue);
+		}while (is_cpu_info_unanalyzed((void*) prev_cpu_info_queue));
+
+		cpu_info_queue_head = ta_queue_pop(cpu_info_queue);
+		printf("cpu%d %.2f\n", cpu_info_queue_head->cpu_id, cpu_info_queue_head->cpu_usage_percent);
+		cpu_info_queue_next = ta_queue_peek(cpu_info_queue);
+		if(cpu_info_queue_next->cpu_id < cpu_info_queue_head->cpu_id){
+			printf("-----------------------");
+		}
+	}
 }
 
 int main(int argc, char **argv) {
