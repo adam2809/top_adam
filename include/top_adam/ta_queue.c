@@ -12,6 +12,7 @@ ta_queue *ta_queue_new()
 	ta_queue *new = malloc(sizeof(ta_queue));
 	new->start = 0;
 	new->end = 0;
+	new->len = 0;
 	return new;
 }
 
@@ -35,6 +36,7 @@ void *ta_queue_append(ta_queue *queue, void *val)
 	}
 	queue->end = new_node;
 
+	queue->len++;
 	return new_node->val;
 }
 void *ta_queue_pop(ta_queue *queue)
@@ -58,6 +60,7 @@ void *ta_queue_pop(ta_queue *queue)
 	}
 	free(old_start);
 
+	queue->len--;
 	return ret;
 }
 
@@ -84,6 +87,10 @@ void ta_queue_destroy(ta_queue *queue)
 }
 
 void* ta_queue_elem(ta_queue *queue, int n){
+	if(n >= queue->len){
+		return 0;
+	}
+
 	ta_node* elem = queue->start;
 
 	while(n != 0 && elem != 0){

@@ -14,7 +14,6 @@ typedef struct ta_queue
 	ta_node *start;
 	ta_node *end;
 	int len;
-	int max_len;
 } ta_queue;
 
 ta_queue *ta_queue_new(int max_len);
