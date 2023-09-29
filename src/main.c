@@ -13,6 +13,7 @@
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
 int printer_thread(void* arg);
+int watchdog_thread(void* arg);
 
 int is_cpu_info_unanalyzed(void* elem);
 
@@ -23,6 +24,11 @@ mtx_t cpu_info_queue_mtx;
 cnd_t cpu_info_queue_full_cnd;
 cnd_t cpu_info_queue_empty_cnd;
 cnd_t cpu_info_queue_head_analyzed_cnd;
+
+mtx_t watchdog_mtx;
+cnd_t watchdog_reader_cnd;
+cnd_t watchdog_analyzer_cnd;
+cnd_t watchdog_printer_cnd;
 
 FILE* proc_stat_file_ptr;
 
@@ -103,10 +109,15 @@ int printer_fun(void* arg){
 	}
 }
 
+int watchdog_fun(void* arg){
+	return 0;
+}
+
 int main(int argc, char **argv) {
 	thrd_t reader_thrd;
 	thrd_t analyzer_thrd;
 	thrd_t printer_thrd;
+	thrd_t watchdog_thrd;
 	int thrd_create_ret;
 
 	cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
@@ -116,6 +127,11 @@ int main(int argc, char **argv) {
 	cnd_init(&cpu_info_queue_full_cnd);
 	cnd_init(&cpu_info_queue_full_cnd);
 	cnd_init(&cpu_info_queue_head_analyzed_cnd);
+
+	mtx_init(&watchdog_mtx, mtx_plain);
+	cnd_init(&watchdog_reader_cnd);
+	cnd_init(&watchdog_analyzer_cnd);
+	cnd_init(&watchdog_printer_cnd);
 
 	if(!cpu_info_queue || !prev_cpu_info_queue){
 		return 1;
@@ -132,6 +148,11 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	thrd_create_ret = thrd_create(&watchdog_thrd,watchdog_fun, 0);
+	if(thrd_create_ret != thrd_success){
+		return 1;
+	}
+
 	thrd_create_ret = thrd_create(&printer_thrd,printer_fun, 0);
 	if(thrd_create_ret != thrd_success){
 		return 1;
@@ -140,5 +161,6 @@ int main(int argc, char **argv) {
 	thrd_join(reader_thrd, 0);
 	thrd_join(analyzer_thrd, 0);
 	thrd_join(printer_thrd, 0);
+	thrd_join(watchdog_thrd, 0);
 	return 0;
 }
