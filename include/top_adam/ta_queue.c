@@ -136,3 +136,7 @@ void* ta_queue_find(ta_queue *queue, int (*cmp)(void*)){
 
 	return 0;
 }
+
+int ta_queue_is_head(ta_queue *queue, void* elem){
+	return elem == ta_queue_peek(queue);
+}
