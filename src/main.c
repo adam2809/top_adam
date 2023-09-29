@@ -42,7 +42,6 @@ int reader_fun(void* arg){
 			free(cpu_info_ptr);
 			fclose(proc_stat_file_ptr);
 			proc_stat_file_ptr = 0;
-			printf("-------------------\n");
 			continue;
 		}
 
@@ -90,6 +89,7 @@ int analyzer_fun(void* arg){
 			memcpy(prev_new,next,sizeof(proc_stat_cpu_info));
 			ta_queue_append(synch->prev_cpu_info_queue,prev_new);
 		}
+
 		next->cpu_usage_percent = analyze_proc_stat_cpu_info(next, prev);
 		cnd_signal(&synch->watchdog_analyzer_cnd);
 		if (ta_queue_is_head(synch->cpu_info_queue,next))
