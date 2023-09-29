@@ -10,12 +10,16 @@
 
 #define MAX_CPU_INFO_QUEUE_LEN 1000
 
+#define WATCHDOG_TIMEOUT_SEC 2
+
 int reader_thread(void* arg);
 int analyzer_thread(void* arg);
 int printer_thread(void* arg);
 int watchdog_thread(void* arg);
 
 int is_cpu_info_unanalyzed(void* elem);
+
+int watchdog_timeout(cnd_t* cnd);
 
 ta_queue* cpu_info_queue;
 ta_queue* prev_cpu_info_queue;
@@ -110,7 +114,34 @@ int printer_fun(void* arg){
 }
 
 int watchdog_fun(void* arg){
+	int ret;
+	while(1){
+		ret = watchdog_timeout(&watchdog_reader_cnd);
+		if (ret == thrd_timedout)
+		{
+			puts("Reader not reported to watchdog");
+		}
+
+		ret = watchdog_timeout(&watchdog_analyzer_cnd);
+		if (ret == thrd_timedout)
+		{
+			puts("Analyzer not reported to watchdog");
+		}
+
+		ret = watchdog_timeout(&watchdog_printer_cnd);
+		if (ret == thrd_timedout)
+		{
+			puts("Printer not reported to watchdog");
+		}
+	}
 	return 0;
+}
+
+int watchdog_timeout(cnd_t* cnd){
+	struct timespec now;
+	timespec_get(&now, TIME_UTC);
+	now.tv_sec += WATCHDOG_TIMEOUT_SEC;
+	return cnd_timedwait(cnd, &watchdog_mtx, &now);
 }
 
 int main(int argc, char **argv) {
