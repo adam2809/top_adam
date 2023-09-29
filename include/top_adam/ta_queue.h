@@ -26,5 +26,6 @@ void* ta_queue_peek(ta_queue *queue);
 void* ta_queue_find(ta_queue *queue, int (*cmp)(void*));
 int ta_queue_is_empty(ta_queue *queue);
 int ta_queue_is_full(ta_queue *queue);
+int ta_queue_is_head(ta_queue *queue, void* elem);
 
 #endif
