@@ -48,6 +48,11 @@ int reader_fun(void* arg){
 		}
 		ta_queue_append(synch->cpu_info_queue, cpu_info_ptr);
 	}
+
+	if (proc_stat_file_ptr)
+	{
+		fclose(proc_stat_file_ptr);
+	}
 }
 
 int analyzer_fun(void* arg){
