@@ -64,7 +64,6 @@ int analyzer_fun(void* arg){
 
 	while (!synch->finished)
 	{
-		next = ta_queue_find(synch->cpu_info_queue,is_cpu_info_unanalyzed);
 		if(!next){
 			continue;
 		}
@@ -76,13 +75,7 @@ int analyzer_fun(void* arg){
 			memcpy(prev_new,next,sizeof(proc_stat_cpu_info));
 			ta_queue_append(synch->prev_cpu_info_queue,prev_new);
 		}
-		next->cpu_usage_percent = analyze_proc_stat_cpu_info(next, prev);
 	}
-}
-
-int is_cpu_info_unanalyzed(void* elem){
-	proc_stat_cpu_info* cpu_info = elem;
-	return cpu_info->cpu_usage_percent < 0;
 }
 
 int printer_fun(void* arg){
@@ -92,12 +85,9 @@ int printer_fun(void* arg){
 
 	while (!synch->finished)
 	{
-		do{
-			cpu_info_queue_head = ta_queue_peek(synch->cpu_info_queue);
-		}while (is_cpu_info_unanalyzed((void*) synch->prev_cpu_info_queue));
 
 		cpu_info_queue_head = ta_queue_pop(synch->cpu_info_queue);
-		printf("cpu%d %.2f\n", cpu_info_queue_head->cpu_id, cpu_info_queue_head->cpu_usage_percent);
+		printf("cpu%d %.2f\n", cpu_info_queue_head->cpu_id, 0.0);
 		cpu_info_queue_next = ta_queue_peek(synch->cpu_info_queue);
 		if(cpu_info_queue_next->cpu_id < cpu_info_queue_head->cpu_id){
 			printf("-----------------------");

@@ -25,6 +25,5 @@ int reader_fun(void* arg);
 int analyzer_fun(void* arg);
 int printer_fun(void* arg);
 int watchdog_fun(void* arg);
-int is_cpu_info_unanalyzed(void* elem);
 int watchdog_timeout(cnd_t* cnd, mtx_t* mtx);
 void finish(int signum);
