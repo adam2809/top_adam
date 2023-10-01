@@ -215,7 +215,10 @@ int main(int argc, char **argv) {
 	struct sigaction action;
 	memset(&action, 0, sizeof(struct sigaction));
 	action.sa_handler = finish;
-	sigaction(SIGTERM, &action, NULL);
+	if(sigaction(SIGTERM, &action, 0)){
+		ta_log("Failed to initialize capturing SIGTERM");
+		return 1;
+	}
 
 	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, &synch);
 	if(thrd_create_ret != thrd_success){
