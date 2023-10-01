@@ -17,7 +17,7 @@ int reader_fun(void* arg){
 	FILE* proc_stat_file_ptr;
 	ta_synch* synch = arg;
 
-	while(1){
+	while(!synch->finished){
 		if(!proc_stat_file_ptr){
 			proc_stat_file_ptr = fopen(PROC_STAT_FILE_PATH,"r");
 		}
@@ -69,7 +69,7 @@ int analyzer_fun(void* arg){
 
 	ta_synch* synch = arg;
 
-	while (1)
+	while (!synch->finished)
 	{
 		cnd_wait(&synch->cpu_info_queue_all_analyzed_cnd, &synch->cpu_info_queue_mtx);
 
@@ -110,7 +110,7 @@ int printer_fun(void* arg){
 
 	ta_synch* synch = arg;
 
-	while (1)
+	while (!synch->finished)
 	{
 		cnd_wait(&synch->cpu_info_queue_head_analyzed_cnd,&synch->cpu_info_queue_mtx);
 
@@ -134,7 +134,7 @@ int watchdog_fun(void* arg){
 	int ret;
 	ta_synch* synch = arg;
 
-	while(1){
+	while(!synch->finished){
 		ret = watchdog_timeout(&synch->watchdog_reader_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
@@ -182,6 +182,8 @@ int ta_synch_init(ta_synch* synch){
 	cnd_init(&synch->watchdog_reader_cnd);
 	cnd_init(&synch->watchdog_analyzer_cnd);
 	cnd_init(&synch->watchdog_printer_cnd);
+
+	synch->finished = 0;
 
 	return 0;
 }
