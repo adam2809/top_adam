@@ -142,6 +142,7 @@ int ta_synch_init(ta_synch* synch){
 	int ret = 0;
 
 	ret |= mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
+	ret |= mtx_init(&synch->analyzed_queue_mtx, mtx_plain);
 	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
 	ret |= cnd_init(&synch->cpu_info_queue_empty_cnd);
 	ret |= cnd_init(&synch->analyzed_queue_full_cnd);

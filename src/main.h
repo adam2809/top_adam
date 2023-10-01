@@ -7,6 +7,7 @@ typedef struct ta_synch{
 	ta_queue* prev_cpu_info_queue;
 
 	mtx_t cpu_info_queue_mtx;
+	mtx_t analyzed_queue_mtx;
 	cnd_t cpu_info_queue_full_cnd;
 	cnd_t cpu_info_queue_empty_cnd;
 	cnd_t analyzed_queue_full_cnd;
