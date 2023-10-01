@@ -19,9 +19,11 @@ typedef struct ta_synch{
 } ta_synch;
 
 int ta_synch_init(ta_synch* synch);
+void ta_synch_destroy();
 int reader_fun(void* arg);
 int analyzer_fun(void* arg);
 int printer_fun(void* arg);
 int watchdog_fun(void* arg);
 int is_cpu_info_unanalyzed(void* elem);
 int watchdog_timeout(cnd_t* cnd, mtx_t* mtx);
+void finish(int signum);

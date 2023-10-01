@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
+#include <unistd.h>
 #include "proc_stat.h"
 #include "main.h"
 
@@ -12,6 +14,7 @@
 
 #define WATCHDOG_TIMEOUT_SEC 2
 
+ta_synch synch;
 
 int reader_fun(void* arg){
 	ta_synch* synch = arg;
@@ -153,6 +156,25 @@ int ta_synch_init(ta_synch* synch){
 	return 0;
 }
 
+void ta_synch_destroy(ta_synch* synch){
+	ta_queue_destroy(synch->cpu_info_queue);
+	ta_queue_destroy(synch->prev_cpu_info_queue);
+
+	mtx_destroy(&synch->cpu_info_queue_mtx);
+	cnd_destroy(&synch->cpu_info_queue_full_cnd);
+	cnd_destroy(&synch->cpu_info_queue_full_cnd);
+	cnd_destroy(&synch->cpu_info_queue_head_analyzed_cnd);
+
+	mtx_destroy(&synch->watchdog_mtx);
+	cnd_destroy(&synch->watchdog_reader_cnd);
+	cnd_destroy(&synch->watchdog_analyzer_cnd);
+	cnd_destroy(&synch->watchdog_printer_cnd);
+}
+
+void finish(int signum){
+	synch.finished = 1;
+}
+
 int main(int argc, char **argv) {
 	thrd_t reader_thrd;
 	thrd_t analyzer_thrd;
@@ -160,10 +182,14 @@ int main(int argc, char **argv) {
 	thrd_t watchdog_thrd;
 	int thrd_create_ret;
 
-	ta_synch synch;
 	if(ta_synch_init(&synch) != 0){
 		return 1;
 	}
+
+	struct sigaction action;
+	memset(&action, 0, sizeof(struct sigaction));
+	action.sa_handler = finish;
+	sigaction(SIGTERM, &action, NULL);
 
 	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, &synch);
 	if(thrd_create_ret != thrd_success){
@@ -189,5 +215,8 @@ int main(int argc, char **argv) {
 	thrd_join(analyzer_thrd, 0);
 	thrd_join(printer_thrd, 0);
 	thrd_join(watchdog_thrd, 0);
+
+	ta_synch_destroy(&synch);
+
 	return 0;
 }
