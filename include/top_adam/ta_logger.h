@@ -16,6 +16,7 @@ int ta_logger_init();
 int ta_logger_core(void* arg);
 void ta_log(char* msg);
 void ta_logger_destroy();
+void ta_logger_stop();
 
 
 #endif

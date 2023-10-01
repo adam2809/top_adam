@@ -57,7 +57,7 @@ int ta_logger_init(){
 int ta_logger_core(void* arg){
 	#ifdef TA_LOGGER_ENABLE
 	ta_logger_msg* log_msg;
-	while(1){
+	while(!logger_finished){
 		if(!log_file_ptr){
 			return 1;
 		}
@@ -88,6 +88,11 @@ int ta_logger_core(void* arg){
 
 void ta_log(char* msg){
 	#ifdef TA_LOGGER_ENABLE
+	if (logger_finished)
+	{
+		return;
+	}
+	
 	ta_logger_msg* log_msg = ta_logger_msg_new(msg);
 	if(!log_msg){
 		return;
@@ -103,6 +108,10 @@ void ta_log(char* msg){
 	cnd_signal(&log_queue_empty_cnd);
 	mtx_unlock(&log_queue_mtx);
 	#endif
+}
+
+void ta_logger_stop(){
+	logger_finished = 1;
 }
 
 void ta_logger_destroy(){
