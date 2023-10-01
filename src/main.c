@@ -143,8 +143,9 @@ int ta_synch_init(ta_synch* synch){
 
 	ret |= mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
 	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
-	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
-	ret |= cnd_init(&synch->cpu_info_queue_head_analyzed_cnd);
+	ret |= cnd_init(&synch->cpu_info_queue_empty_cnd);
+	ret |= cnd_init(&synch->analyzed_queue_full_cnd);
+	ret |= cnd_init(&synch->analyzed_queue_empty_cnd);
 
 	ret |= mtx_init(&synch->watchdog_mtx, mtx_plain);
 	ret |= cnd_init(&synch->watchdog_reader_cnd);
@@ -166,8 +167,9 @@ void ta_synch_destroy(ta_synch* synch){
 
 	mtx_destroy(&synch->cpu_info_queue_mtx);
 	cnd_destroy(&synch->cpu_info_queue_full_cnd);
-	cnd_destroy(&synch->cpu_info_queue_full_cnd);
-	cnd_destroy(&synch->cpu_info_queue_head_analyzed_cnd);
+	cnd_destroy(&synch->cpu_info_queue_empty_cnd);
+	cnd_destroy(&synch->analyzed_queue_full_cnd);
+	cnd_destroy(&synch->analyzed_queue_empty_cnd);
 
 	mtx_destroy(&synch->watchdog_mtx);
 	cnd_destroy(&synch->watchdog_reader_cnd);

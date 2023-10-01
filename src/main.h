@@ -8,8 +8,9 @@ typedef struct ta_synch{
 
 	mtx_t cpu_info_queue_mtx;
 	cnd_t cpu_info_queue_full_cnd;
-	cnd_t cpu_info_queue_all_analyzed_cnd;
-	cnd_t cpu_info_queue_head_analyzed_cnd;
+	cnd_t cpu_info_queue_empty_cnd;
+	cnd_t analyzed_queue_full_cnd;
+	cnd_t analyzed_queue_empty_cnd;
 
 	mtx_t watchdog_mtx;
 	cnd_t watchdog_reader_cnd;
