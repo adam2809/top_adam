@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "proc_stat.h"
 #include "main.h"
+#include "ta_logger.h"
 
 #define PROC_STAT_FILE_PATH "/proc/stat"
 #define PROC_STAT_MAX_LINE_LEN 1000
@@ -173,6 +174,7 @@ void ta_synch_destroy(ta_synch* synch){
 
 void finish(int signum){
 	synch.finished = 1;
+	ta_logger_stop();
 }
 
 int main(int argc, char **argv) {
@@ -181,6 +183,24 @@ int main(int argc, char **argv) {
 	thrd_t printer_thrd;
 	thrd_t watchdog_thrd;
 	int thrd_create_ret;
+
+#ifdef TA_LOGGER_ENABLE
+	thrd_t logger_thrd;
+	int logger_init_ret;
+	logger_init_ret = ta_logger_init();
+	if (logger_init_ret == 0)
+	{
+		return 1;
+	}
+	
+	thrd_create_ret = thrd_create(&logger_thrd, ta_logger_core, 0);
+	if(thrd_create_ret != thrd_success){
+		return 1;
+	}
+#endif
+
+	ta_log("---------------------------------");
+	ta_log("Starting top_adam");
 
 	if(ta_synch_init(&synch) != 0){
 		return 1;
@@ -215,8 +235,12 @@ int main(int argc, char **argv) {
 	thrd_join(analyzer_thrd, 0);
 	thrd_join(printer_thrd, 0);
 	thrd_join(watchdog_thrd, 0);
+#ifdef TA_LOGGER_ENABLE
+	thrd_join(logger_thrd, 0);
+#endif
 
 	ta_synch_destroy(&synch);
+	ta_logger_destroy();
 
 	return 0;
 }
