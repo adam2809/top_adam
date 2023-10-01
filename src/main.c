@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "ta_queue.h"
 #include "proc_stat.h"
+#include "main.h"
 
 #define PROC_STAT_FILE_PATH "/proc/stat"
 #define PROC_STAT_MAX_LINE_LEN 1000
@@ -12,31 +12,10 @@
 
 #define WATCHDOG_TIMEOUT_SEC 2
 
-int reader_thread(void* arg);
-int analyzer_thread(void* arg);
-int printer_thread(void* arg);
-int watchdog_thread(void* arg);
-
-int is_cpu_info_unanalyzed(void* elem);
-
-int watchdog_timeout(cnd_t* cnd);
-
-ta_queue* cpu_info_queue;
-ta_queue* prev_cpu_info_queue;
-
-mtx_t cpu_info_queue_mtx;
-cnd_t cpu_info_queue_full_cnd;
-cnd_t cpu_info_queue_empty_cnd;
-cnd_t cpu_info_queue_head_analyzed_cnd;
-
-mtx_t watchdog_mtx;
-cnd_t watchdog_reader_cnd;
-cnd_t watchdog_analyzer_cnd;
-cnd_t watchdog_printer_cnd;
-
-FILE* proc_stat_file_ptr;
 
 int reader_fun(void* arg){
+	ta_synch* synch = arg;
+
 	FILE* proc_stat_file_ptr = 0;
 
 	while(1){
@@ -63,27 +42,29 @@ int reader_fun(void* arg){
 			proc_stat_file_ptr = 0;
 			continue;
 		}
-		ta_queue_append(cpu_info_queue, cpu_info_ptr);
+		ta_queue_append(synch->cpu_info_queue, cpu_info_ptr);
 	}
 }
 
 int analyzer_fun(void* arg){
+	ta_synch* synch = arg;
+
 	proc_stat_cpu_info* next;
 	proc_stat_cpu_info* prev;
 
 	while (1)
 	{
-		next = ta_queue_find(cpu_info_queue,is_cpu_info_unanalyzed);
+		next = ta_queue_find(synch->cpu_info_queue,is_cpu_info_unanalyzed);
 		if(!next){
 			continue;
 		}
 
-		prev = ta_queue_elem(prev_cpu_info_queue,next->cpu_id);
+		prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
 		if (!prev)
 		{
 			proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
 			memcpy(prev_new,next,sizeof(proc_stat_cpu_info));
-			ta_queue_append(prev_cpu_info_queue,prev_new);
+			ta_queue_append(synch->prev_cpu_info_queue,prev_new);
 		}
 		next->cpu_usage_percent = analyze_proc_stat_cpu_info(next, prev);
 	}
@@ -95,18 +76,19 @@ int is_cpu_info_unanalyzed(void* elem){
 }
 
 int printer_fun(void* arg){
+	ta_synch* synch = arg;
 	proc_stat_cpu_info* cpu_info_queue_head;
 	proc_stat_cpu_info* cpu_info_queue_next;
 
 	while (1)
 	{
 		do{
-			cpu_info_queue_head = ta_queue_peek(cpu_info_queue);
-		}while (is_cpu_info_unanalyzed((void*) prev_cpu_info_queue));
+			cpu_info_queue_head = ta_queue_peek(synch->cpu_info_queue);
+		}while (is_cpu_info_unanalyzed((void*) synch->prev_cpu_info_queue));
 
-		cpu_info_queue_head = ta_queue_pop(cpu_info_queue);
+		cpu_info_queue_head = ta_queue_pop(synch->cpu_info_queue);
 		printf("cpu%d %.2f\n", cpu_info_queue_head->cpu_id, cpu_info_queue_head->cpu_usage_percent);
-		cpu_info_queue_next = ta_queue_peek(cpu_info_queue);
+		cpu_info_queue_next = ta_queue_peek(synch->cpu_info_queue);
 		if(cpu_info_queue_next->cpu_id < cpu_info_queue_head->cpu_id){
 			printf("-----------------------");
 		}
@@ -115,20 +97,22 @@ int printer_fun(void* arg){
 
 int watchdog_fun(void* arg){
 	int ret;
+	ta_synch* synch = arg;
+
 	while(1){
-		ret = watchdog_timeout(&watchdog_reader_cnd);
+		ret = watchdog_timeout(&synch->watchdog_reader_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
 			puts("Reader not reported to watchdog");
 		}
 
-		ret = watchdog_timeout(&watchdog_analyzer_cnd);
+		ret = watchdog_timeout(&synch->watchdog_analyzer_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
 			puts("Analyzer not reported to watchdog");
 		}
 
-		ret = watchdog_timeout(&watchdog_printer_cnd);
+		ret = watchdog_timeout(&synch->watchdog_printer_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
 			puts("Printer not reported to watchdog");
@@ -137,11 +121,34 @@ int watchdog_fun(void* arg){
 	return 0;
 }
 
-int watchdog_timeout(cnd_t* cnd){
+int watchdog_timeout(cnd_t* cnd, mtx_t* mtx){
 	struct timespec now;
 	timespec_get(&now, TIME_UTC);
 	now.tv_sec += WATCHDOG_TIMEOUT_SEC;
-	return cnd_timedwait(cnd, &watchdog_mtx, &now);
+	return cnd_timedwait(cnd, mtx, &now);
+}
+
+int ta_synch_init(ta_synch* synch){
+	memset(synch,0,sizeof(synch));
+
+	synch->cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
+	synch->prev_cpu_info_queue = ta_queue_new(-1);
+
+	if(!synch->cpu_info_queue || !synch->prev_cpu_info_queue){
+		return 1;
+	}
+
+	mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
+	cnd_init(&synch->cpu_info_queue_full_cnd);
+	cnd_init(&synch->cpu_info_queue_full_cnd);
+	cnd_init(&synch->cpu_info_queue_head_analyzed_cnd);
+
+	mtx_init(&synch->watchdog_mtx, mtx_plain);
+	cnd_init(&synch->watchdog_reader_cnd);
+	cnd_init(&synch->watchdog_analyzer_cnd);
+	cnd_init(&synch->watchdog_printer_cnd);
+
+	return 0;
 }
 
 int main(int argc, char **argv) {
@@ -151,40 +158,27 @@ int main(int argc, char **argv) {
 	thrd_t watchdog_thrd;
 	int thrd_create_ret;
 
-	cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
-	prev_cpu_info_queue = ta_queue_new(-1);
-
-	mtx_init(&cpu_info_queue_mtx, mtx_plain);
-	cnd_init(&cpu_info_queue_full_cnd);
-	cnd_init(&cpu_info_queue_full_cnd);
-	cnd_init(&cpu_info_queue_head_analyzed_cnd);
-
-	mtx_init(&watchdog_mtx, mtx_plain);
-	cnd_init(&watchdog_reader_cnd);
-	cnd_init(&watchdog_analyzer_cnd);
-	cnd_init(&watchdog_printer_cnd);
-
-	if(!cpu_info_queue || !prev_cpu_info_queue){
+	ta_synch synch;
+	if(ta_synch_init(&synch) != 0){
 		return 1;
 	}
 
-
-	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, 0);
+	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, &synch);
 	if(thrd_create_ret != thrd_success){
 		return 1;
 	}
 
-	thrd_create_ret = thrd_create(&analyzer_thrd,analyzer_fun, 0);
+	thrd_create_ret = thrd_create(&analyzer_thrd,analyzer_fun, &synch);
 	if(thrd_create_ret != thrd_success){
 		return 1;
 	}
 
-	thrd_create_ret = thrd_create(&watchdog_thrd,watchdog_fun, 0);
+	thrd_create_ret = thrd_create(&watchdog_thrd,watchdog_fun, &synch);
 	if(thrd_create_ret != thrd_success){
 		return 1;
 	}
 
-	thrd_create_ret = thrd_create(&printer_thrd,printer_fun, 0);
+	thrd_create_ret = thrd_create(&printer_thrd,printer_fun, &synch);
 	if(thrd_create_ret != thrd_success){
 		return 1;
 	}
