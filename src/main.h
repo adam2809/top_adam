@@ -14,6 +14,8 @@ typedef struct ta_synch{
 	cnd_t watchdog_reader_cnd;
 	cnd_t watchdog_analyzer_cnd;
 	cnd_t watchdog_printer_cnd;
+
+	_Atomic (int) finished;
 } ta_synch;
 
 int ta_synch_init(ta_synch* synch);
