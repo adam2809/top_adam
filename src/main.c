@@ -142,15 +142,21 @@ int ta_synch_init(ta_synch* synch){
 		return 1;
 	}
 
-	mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
-	cnd_init(&synch->cpu_info_queue_full_cnd);
-	cnd_init(&synch->cpu_info_queue_full_cnd);
-	cnd_init(&synch->cpu_info_queue_head_analyzed_cnd);
+	int ret = 0;
 
-	mtx_init(&synch->watchdog_mtx, mtx_plain);
-	cnd_init(&synch->watchdog_reader_cnd);
-	cnd_init(&synch->watchdog_analyzer_cnd);
-	cnd_init(&synch->watchdog_printer_cnd);
+	ret |= mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
+	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
+	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
+	ret |= cnd_init(&synch->cpu_info_queue_head_analyzed_cnd);
+
+	ret |= mtx_init(&synch->watchdog_mtx, mtx_plain);
+	ret |= cnd_init(&synch->watchdog_reader_cnd);
+	ret |= cnd_init(&synch->watchdog_analyzer_cnd);
+	ret |= cnd_init(&synch->watchdog_printer_cnd);
+
+	if(ret){
+		return 1;
+	}
 
 	synch->finished = 0;
 
