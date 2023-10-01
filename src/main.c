@@ -12,6 +12,7 @@
 #define PROC_STAT_MAX_LINE_LEN 1000
 
 #define MAX_CPU_INFO_QUEUE_LEN 1000
+#define MAX_ANALYZED_QUEUE_LEN 1000
 
 #define WATCHDOG_TIMEOUT_SEC 2
 
@@ -141,6 +142,7 @@ int ta_synch_init(ta_synch* synch){
 	memset(synch,0,sizeof(synch));
 
 	synch->cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
+	synch->analyzed_queue = ta_queue_new(MAX_ANALYZED_QUEUE_LEN);
 	synch->prev_cpu_info_queue = ta_queue_new(-1);
 
 	if(!synch->cpu_info_queue || !synch->prev_cpu_info_queue){
