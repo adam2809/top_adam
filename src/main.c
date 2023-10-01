@@ -7,6 +7,7 @@
 #include "proc_stat.h"
 #include "main.h"
 #include "ta_logger.h"
+#include "ta_safe_queue.h"
 
 #define PROC_STAT_FILE_PATH "/proc/stat"
 #define PROC_STAT_MAX_LINE_LEN 1000
@@ -33,27 +34,40 @@ int reader_fun(void* arg){
 
 		proc_stat_cpu_info* cpu_info_ptr = new_proc_stat_cpu_info();
 		if(cpu_info_ptr == 0){
-			continue;
+			return 1;
 		}
 
 		int res = get_next_proc_stat_cpu_info(cpu_info_ptr,PROC_STAT_MAX_LINE_LEN,proc_stat_file_ptr);
 		if(res == -1){
 			free(cpu_info_ptr);
-			continue;
+			return 1;
 		}
 		if(res == 0){
 			free(cpu_info_ptr);
 			fclose(proc_stat_file_ptr);
 			proc_stat_file_ptr = 0;
-			continue;
+			cpu_info_ptr = 0;
 		}
-		ta_queue_append(synch->cpu_info_queue, cpu_info_ptr);
+
+		void* ret  = ta_queue_safe_append(
+			synch->cpu_info_queue,
+			cpu_info_ptr,
+			&synch->cpu_info_queue_mtx,
+			&synch->cpu_info_queue_full_cnd,
+			&synch->cpu_info_queue_empty_cnd
+		);
+		if(!ret){
+			synch->finished = 1;
+			return 1;
+		}
 	}
 
 	if (proc_stat_file_ptr)
 	{
 		fclose(proc_stat_file_ptr);
 	}
+
+	return 0;
 }
 
 int analyzer_fun(void* arg){
@@ -62,35 +76,75 @@ int analyzer_fun(void* arg){
 	proc_stat_cpu_info* next;
 	proc_stat_cpu_info* prev;
 
+	double* next_analyzed = 0;
+
 	while (!synch->finished)
 	{
-		if(!next){
-			continue;
+		next = ta_queue_safe_pop(
+			synch->cpu_info_queue,
+			&synch->cpu_info_queue_mtx,
+			&synch->cpu_info_queue_full_cnd,
+			&synch->cpu_info_queue_empty_cnd
+		);
+
+
+		if(next){
+			prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
+			if (!prev){
+				proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
+				if(!ta_queue_append(synch->prev_cpu_info_queue,prev_new)) return 1;
+				prev = prev_new;
+			}else{
+				if(memcmp(next,prev,sizeof(proc_stat_cpu_info)) == 0){
+					free(next);
+					continue;
+				}
+			}
+			next_analyzed = calloc(1,sizeof(double));
+			*next_analyzed = analyze_proc_stat_cpu_info(next,prev);
+			memcpy(prev,next,sizeof(proc_stat_cpu_info));
+			free(next);
+		}else{
+			next_analyzed = 0;
 		}
 
-		prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
-		if (!prev)
-		{
-			proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
-			memcpy(prev_new,next,sizeof(proc_stat_cpu_info));
-			ta_queue_append(synch->prev_cpu_info_queue,prev_new);
+		void* ret = ta_queue_safe_append(
+			synch->analyzed_queue,
+			next_analyzed,
+			&synch->analyzed_queue_mtx,
+			&synch->analyzed_queue_full_cnd,
+			&synch->analyzed_queue_empty_cnd
+		);
+		if(!ret){
+			synch->finished = 1;
+			return 1;
 		}
 	}
+
+	return 0;
 }
 
 int printer_fun(void* arg){
 	ta_synch* synch = arg;
-	proc_stat_cpu_info* cpu_info_queue_head;
-	proc_stat_cpu_info* cpu_info_queue_next;
+	double* next;
+	int cpu_index = 0;
 
 	while (!synch->finished)
 	{
+		next = ta_queue_safe_pop(
+			synch->analyzed_queue,
+			&synch->analyzed_queue_mtx,
+			&synch->analyzed_queue_full_cnd,
+			&synch->analyzed_queue_empty_cnd
+		);
 
-		cpu_info_queue_head = ta_queue_pop(synch->cpu_info_queue);
-		printf("cpu%d %.2f\n", cpu_info_queue_head->cpu_id, 0.0);
-		cpu_info_queue_next = ta_queue_peek(synch->cpu_info_queue);
-		if(cpu_info_queue_next->cpu_id < cpu_info_queue_head->cpu_id){
-			printf("-----------------------");
+		if(next){
+			printf("cpu%d %.2f\n", cpu_index, *next);
+			free(next);
+			cpu_index++;
+		}else{
+			printf("-----------------------\n");
+			cpu_index = 0;
 		}
 	}
 }
