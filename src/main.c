@@ -26,9 +26,11 @@ int reader_fun(void* arg){
 
 	while(!synch->finished){
 		if(!proc_stat_file_ptr){
+			ta_log("Opening procfs file");
 			proc_stat_file_ptr = fopen(PROC_STAT_FILE_PATH,"r");
 		}
 		if(!proc_stat_file_ptr){
+			ta_log("Error! Could not open procfs file");
 			return 1;
 		}
 
@@ -43,12 +45,14 @@ int reader_fun(void* arg){
 			return 1;
 		}
 		if(res == 0){
+			ta_log("Got to the end of procfs file");
 			free(cpu_info_ptr);
 			fclose(proc_stat_file_ptr);
 			proc_stat_file_ptr = 0;
 			cpu_info_ptr = 0;
 		}
 
+		ta_log("Putting new cpu info on queue");
 		void* ret  = ta_queue_safe_append(
 			synch->cpu_info_queue,
 			cpu_info_ptr,
@@ -57,6 +61,7 @@ int reader_fun(void* arg){
 			&synch->cpu_info_queue_empty_cnd
 		);
 		if(!ret){
+			ta_log("Error! Could not append to cpu info queue");
 			synch->finished = 1;
 			return 1;
 		}
@@ -89,13 +94,17 @@ int analyzer_fun(void* arg){
 
 
 		if(next){
+			ta_log("Analyzing next cpu info");
 			prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
 			if (!prev){
+				ta_log("Creating new prev entry");
 				proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
 				if(!ta_queue_append(synch->prev_cpu_info_queue,prev_new)) return 1;
 				prev = prev_new;
 			}else{
+				ta_log("Found prev entry");
 				if(memcmp(next,prev,sizeof(proc_stat_cpu_info)) == 0){
+					ta_log("Prev entry is the same as next");
 					free(next);
 					continue;
 				}
@@ -108,6 +117,7 @@ int analyzer_fun(void* arg){
 			next_analyzed = 0;
 		}
 
+		ta_log("Putting new analyzed value on queue");
 		void* ret = ta_queue_safe_append(
 			synch->analyzed_queue,
 			next_analyzed,
@@ -116,6 +126,7 @@ int analyzer_fun(void* arg){
 			&synch->analyzed_queue_empty_cnd
 		);
 		if(!ret){
+			ta_log("Error! Could not append to analyzed queue");
 			synch->finished = 1;
 			return 1;
 		}
@@ -139,10 +150,12 @@ int printer_fun(void* arg){
 		);
 
 		if(next){
+			ta_log("Printing processor usage");
 			printf("cpu%d %.2f\n", cpu_index, *next);
 			free(next);
 			cpu_index++;
 		}else{
+			ta_log("Printing new file version");
 			printf("-----------------------\n");
 			cpu_index = 0;
 		}
