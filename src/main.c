@@ -53,7 +53,7 @@ int reader_fun(void* arg){
 		}
 
 		ta_log("Putting new cpu info on queue");
-		void* ret  = ta_queue_safe_append(
+		ta_node* ret  = ta_queue_safe_append_nullable(
 			synch->cpu_info_queue,
 			cpu_info_ptr,
 			&synch->cpu_info_queue_mtx,
@@ -80,19 +80,22 @@ int analyzer_fun(void* arg){
 
 	proc_stat_cpu_info* next;
 	proc_stat_cpu_info* prev;
+	ta_node* next_node;
 
 	double* next_analyzed = 0;
 
 	while (!synch->finished)
 	{
-		next = ta_queue_safe_pop(
+		next_node = ta_queue_safe_pop_nullable(
 			synch->cpu_info_queue,
 			&synch->cpu_info_queue_mtx,
 			&synch->cpu_info_queue_full_cnd,
 			&synch->cpu_info_queue_empty_cnd
 		);
+		next = next_node->val;
+		free(next_node);
 
-
+		next_analyzed = calloc(1,sizeof(double));
 		if(next){
 			ta_log("Analyzing next cpu info");
 			prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
@@ -109,12 +112,11 @@ int analyzer_fun(void* arg){
 					continue;
 				}
 			}
-			next_analyzed = calloc(1,sizeof(double));
 			*next_analyzed = analyze_proc_stat_cpu_info(next,prev);
 			memcpy(prev,next,sizeof(proc_stat_cpu_info));
 			free(next);
 		}else{
-			next_analyzed = 0;
+			*next_analyzed = -1.0;
 		}
 
 		ta_log("Putting new analyzed value on queue");
@@ -149,16 +151,16 @@ int printer_fun(void* arg){
 			&synch->analyzed_queue_empty_cnd
 		);
 
-		if(next){
+		if(*next >= 0.0){
 			ta_log("Printing processor usage");
 			printf("cpu%d %.2f\n", cpu_index, *next);
-			free(next);
 			cpu_index++;
 		}else{
 			ta_log("Printing new file version");
 			printf("-----------------------\n");
 			cpu_index = 0;
 		}
+		free(next);
 	}
 }
 
