@@ -6,5 +6,7 @@
 
 void* ta_queue_safe_append(ta_queue* queue, void* val , mtx_t* mtx, cnd_t* cnd_full, cnd_t* cnd_empty);
 void* ta_queue_safe_pop(ta_queue* queue, mtx_t* mtx, cnd_t* cnd_full, cnd_t* cnd_empty);
+ta_node* ta_queue_safe_append_nullable(ta_queue* queue, void* val , mtx_t* mtx, cnd_t* cnd_full, cnd_t* cnd_empty);
+ta_node* ta_queue_safe_pop_nullable(ta_queue* queue, mtx_t* mtx, cnd_t* cnd_full, cnd_t* cnd_empty);
 
 #endif
