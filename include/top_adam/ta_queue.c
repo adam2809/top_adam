@@ -19,6 +19,27 @@ ta_queue *ta_queue_new(int max_len)
 
 void *ta_queue_append(ta_queue *queue, void *val)
 {
+	ta_node* ret = ta_queue_append_nullable(queue,val);
+	if (ret){
+		return ret->val;
+	}
+
+	return 0;
+}
+void *ta_queue_pop(ta_queue *queue)
+{
+	ta_node* node = ta_queue_pop_nullable(queue);
+	void* ret = node->val;
+
+	if(ret){
+		free(node);
+		return ret;
+	}
+
+	return 0;
+}
+
+ta_node* ta_queue_append_nullable(ta_queue* queue,void* val){
 	if (queue->max_len !=-1 && ta_queue_is_full(queue))
 	{
 		return 0;
@@ -43,17 +64,17 @@ void *ta_queue_append(ta_queue *queue, void *val)
 	queue->end = new_node;
 
 	queue->len++;
-	return new_node->val;
+
+	return new_node;
 }
-void *ta_queue_pop(ta_queue *queue)
-{
+
+ta_node* ta_queue_pop_nullable(ta_queue *queue){
 	if (ta_queue_is_empty(queue))
 	{
 		return 0;
 	}
 
 	ta_node *old_start = queue->start;
-	void *ret = old_start->val;
 
 	if (old_start == queue->end)
 	{
@@ -64,10 +85,9 @@ void *ta_queue_pop(ta_queue *queue)
 	{
 		queue->start = old_start->next;
 	}
-	free(old_start);
 
 	queue->len--;
-	return ret;
+	return old_start;
 }
 
 void* ta_queue_peek(ta_queue *queue){
