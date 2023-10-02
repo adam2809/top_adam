@@ -27,41 +27,54 @@ int get_next_proc_stat_cpu_info(proc_stat_cpu_info *const cpu_info, size_t size,
 
 	char proc_stat_prefix[PROC_STAT_CPU_PREFIX_STRLEN];
 
-	while(1){
-		if(read_proc_stat_prefix(proc_stat_prefix,stream) == EOF){
-			return -1;
-		}
-
-		if(memcmp(proc_stat_prefix, PROC_STAT_CPU_PREFIX, PROC_STAT_CPU_PREFIX_STRLEN)){
-			return 0;
-		}
-
-		if(!read_proc_stat_line(size,proc_stat_line,stream)){
-			return -1;
-		}
-
-		if(isdigit(proc_stat_line[0])){
-			break;
-		}
+	if(read_proc_stat_prefix(proc_stat_prefix,stream) == EOF){
+		return -1;
 	}
 
-	ret = sscanf(
-		proc_stat_line,
-		"%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
-		&cpu_info->cpu_id,
-		&cpu_info->usertime,
-		&cpu_info->nicetime,
-		&cpu_info->systemtime,
-		&cpu_info->idletime,
-		&cpu_info->iowait,
-		&cpu_info->irq,
-		&cpu_info->softirq,
-		&cpu_info->steal,
-		&cpu_info->guest,
-		&cpu_info->guest_nice
-	);
+	if(memcmp(proc_stat_prefix, PROC_STAT_CPU_PREFIX, PROC_STAT_CPU_PREFIX_STRLEN)){
+		return 0;
+	}
 
-	return ret-1;
+	if(!read_proc_stat_line(size,proc_stat_line,stream)){
+		return -1;
+	}
+
+	char* cpu_info_format = 0;
+	if(isdigit(proc_stat_line[0])){
+		ret = sscanf(
+			proc_stat_line,
+			"%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+			&cpu_info->cpu_id,
+			&cpu_info->usertime,
+			&cpu_info->nicetime,
+			&cpu_info->systemtime,
+			&cpu_info->idletime,
+			&cpu_info->iowait,
+			&cpu_info->irq,
+			&cpu_info->softirq,
+			&cpu_info->steal,
+			&cpu_info->guest,
+			&cpu_info->guest_nice
+		);
+	}else{
+		cpu_info->cpu_id = -1;
+		ret = sscanf(
+			proc_stat_line,
+			"%llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+			&cpu_info->usertime,
+			&cpu_info->nicetime,
+			&cpu_info->systemtime,
+			&cpu_info->idletime,
+			&cpu_info->iowait,
+			&cpu_info->irq,
+			&cpu_info->softirq,
+			&cpu_info->steal,
+			&cpu_info->guest,
+			&cpu_info->guest_nice
+		);
+	}
+
+	return ret;
 }
 
 int read_proc_stat_prefix(char prefix[PROC_STAT_CPU_PREFIX_STRLEN], FILE* restrict stream){
