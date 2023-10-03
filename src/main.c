@@ -174,19 +174,19 @@ int watchdog_fun(void* arg){
 		ret = watchdog_timeout(&synch->watchdog_reader_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
-			puts("Reader not reported to watchdog");
+			ta_log("Reader not reported to watchdog");
 		}
 
 		ret = watchdog_timeout(&synch->watchdog_analyzer_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
-			puts("Analyzer not reported to watchdog");
+			ta_log("Analyzer not reported to watchdog");
 		}
 
 		ret = watchdog_timeout(&synch->watchdog_printer_cnd,&synch->watchdog_mtx);
 		if (ret == thrd_timedout)
 		{
-			puts("Printer not reported to watchdog");
+			ta_log("Printer not reported to watchdog");
 		}
 	}
 	return 0;
