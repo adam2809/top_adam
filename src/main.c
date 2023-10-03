@@ -390,6 +390,7 @@ int main(int argc, char **argv) {
 	ta_log("Starting top_adam");
 
 	if(ta_synch_init(&synch) != 0){
+		ta_log("Error! Failed to initialize thread synchronization");
 		return 1;
 	}
 
@@ -403,21 +404,25 @@ int main(int argc, char **argv) {
 
 	thrd_create_ret = thrd_create(&reader_thrd,reader_fun, &synch);
 	if(thrd_create_ret != thrd_success){
+		ta_log("Error! Failed to create reader thread");
 		return 1;
 	}
 
 	thrd_create_ret = thrd_create(&analyzer_thrd,analyzer_fun, &synch);
 	if(thrd_create_ret != thrd_success){
+		ta_log("Error! Failed to create analyzer thread");
 		return 1;
 	}
 
 	thrd_create_ret = thrd_create(&watchdog_thrd,watchdog_fun, &synch);
 	if(thrd_create_ret != thrd_success){
+		ta_log("Error! Failed to create printer thread");
 		return 1;
 	}
 
 	thrd_create_ret = thrd_create(&printer_thrd,printer_fun, &synch);
 	if(thrd_create_ret != thrd_success){
+		ta_log("Error! Failed to create watchdog thread");
 		return 1;
 	}
 
