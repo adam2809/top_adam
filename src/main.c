@@ -219,14 +219,27 @@ int analyzer_fun(void* arg){
 
 int printer_fun(void* arg){
 	ta_synch* synch = arg;
+	int thrd_ret = 0;
 	double* next;
 	int cpu_index = 0;
 
 	while (!synch->finished)
 	{
-		mtx_lock(&synch->print_buffer_mtx);
-		cnd_wait(&synch->print_buffer_modified,&synch->print_buffer_mtx);
-		cnd_signal(&synch->watchdog_printer_cnd);
+		if(mtx_lock(&synch->print_buffer_mtx) != thrd_success){
+			ta_log("Error! Locking print buffer mutex failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
+		if(cnd_wait(&synch->print_buffer_modified,&synch->print_buffer_mtx) != thrd_success){
+			ta_log("Error! Failed to wait for print buffer modification");
+			thrd_ret = 1;
+			goto cleanup;
+		}
+		if(cnd_signal(&synch->watchdog_printer_cnd) != thrd_success){
+			ta_log("Error! Printer failed to signal watchdog");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 
 		ta_log("Printing processor usage");
 		double* to_print;
@@ -236,8 +249,16 @@ int printer_fun(void* arg){
 			printf("cpu%d %.2f\n", i, *to_print);
 		}
 		printf("---------------------\n");
-		mtx_unlock(&synch->print_buffer_mtx);
+
+		if(mtx_unlock(&synch->print_buffer_mtx) != thrd_success){
+			ta_log("Error! Unlocking print buffer mutex failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 	}
+	cleanup:
+	synch->finished = 1;
+	return thrd_ret;
 }
 
 int watchdog_fun(void* arg){
