@@ -152,6 +152,7 @@ int printer_fun(void* arg){
 	{
 		mtx_lock(&synch->print_buffer_mtx);
 		cnd_wait(&synch->print_buffer_modified,&synch->print_buffer_mtx);
+		cnd_signal(&synch->watchdog_printer_cnd);
 
 		ta_log("Printing processor usage");
 		double* to_print;
