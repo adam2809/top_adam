@@ -263,28 +263,46 @@ int printer_fun(void* arg){
 
 int watchdog_fun(void* arg){
 	int ret;
+	int thrd_ret = 0;
 	ta_synch* synch = arg;
 
 	while(!synch->finished){
 		ret = watchdog_timeout(&synch->watchdog_reader_cnd,&synch->watchdog_mtx);
+		if(ret == thrd_error){
+			ta_log("Error! Watchdog timeout failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		if (ret == thrd_timedout)
 		{
 			ta_log("Reader not reported to watchdog");
 		}
 
 		ret = watchdog_timeout(&synch->watchdog_analyzer_cnd,&synch->watchdog_mtx);
+		if(ret == thrd_error){
+			ta_log("Error! Watchdog timeout failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		if (ret == thrd_timedout)
 		{
 			ta_log("Analyzer not reported to watchdog");
 		}
 
 		ret = watchdog_timeout(&synch->watchdog_printer_cnd,&synch->watchdog_mtx);
+		if(ret == thrd_error){
+			ta_log("Error! Watchdog timeout failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		if (ret == thrd_timedout)
 		{
 			ta_log("Printer not reported to watchdog");
 		}
 	}
-	return 0;
+	cleanup:
+	synch->finished = 1;
+	return thrd_ret;
 }
 
 int watchdog_timeout(cnd_t* cnd, mtx_t* mtx){
