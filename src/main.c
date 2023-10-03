@@ -58,6 +58,7 @@ int reader_fun(void* arg){
 		}
 
 		ta_log("Putting new cpu info on queue");
+		cnd_signal(&synch->watchdog_reader_cnd);
 		void* ret  = ta_queue_safe_append(
 			synch->cpu_info_queue,
 			cpu_info_ptr,
