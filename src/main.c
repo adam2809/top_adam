@@ -23,6 +23,8 @@ int reader_fun(void* arg){
 	ta_synch* synch = arg;
 
 	FILE* proc_stat_file_ptr = 0;
+	int thrd_ret = 0;
+	proc_stat_cpu_info* cpu_info_ptr;
 
 	while(!synch->finished){
 		if(!proc_stat_file_ptr){
@@ -31,18 +33,22 @@ int reader_fun(void* arg){
 		}
 		if(!proc_stat_file_ptr){
 			ta_log("Error! Could not open procfs file");
-			return 1;
+			thrd_ret  = 1;
+			goto cleanup;
 		}
 
-		proc_stat_cpu_info* cpu_info_ptr = new_proc_stat_cpu_info();
+		cpu_info_ptr = new_proc_stat_cpu_info();
 		if(cpu_info_ptr == 0){
-			return 1;
+			ta_log("Error! Could not allocate new cpu info struct");
+			thrd_ret = 1;
+			goto cleanup;
 		}
 
 		int res = get_next_proc_stat_cpu_info(cpu_info_ptr,PROC_STAT_MAX_LINE_LEN,proc_stat_file_ptr);
 		if(res == -1){
-			free(cpu_info_ptr);
-			return 1;
+			ta_log("Error! Reading from procfs failed");
+			thrd_ret = 1;
+			goto cleanup;
 		}
 		if(res > 0 && cpu_info_ptr->cpu_id == -1){
 			free(cpu_info_ptr);
@@ -51,14 +57,25 @@ int reader_fun(void* arg){
 		if(res == 0){
 			ta_log("Got to the end of procfs file");
 			free(cpu_info_ptr);
-			fclose(proc_stat_file_ptr);
+			if(fclose(proc_stat_file_ptr) == EOF){
+				thrd_ret = 1;
+				goto cleanup;
+			}
 			proc_stat_file_ptr = 0;
-			thrd_sleep(&(struct timespec){.tv_sec=READER_DELAY_SEC}, NULL);
+			if(thrd_sleep(&(struct timespec){.tv_sec=READER_DELAY_SEC}, NULL) < 0){
+				ta_log("Error! Thread sleep failed");
+				thrd_ret = 1;
+				goto cleanup;
+			}
 			continue;
 		}
 
 		ta_log("Putting new cpu info on queue");
-		cnd_signal(&synch->watchdog_reader_cnd);
+		if(cnd_signal(&synch->watchdog_reader_cnd) != thrd_success){
+			ta_log("Error! Could not append to cpu info queue");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		void* ret  = ta_queue_safe_append(
 			synch->cpu_info_queue,
 			cpu_info_ptr,
@@ -68,17 +85,22 @@ int reader_fun(void* arg){
 		);
 		if(!ret){
 			ta_log("Error! Could not append to cpu info queue");
-			synch->finished = 1;
-			return 1;
+			thrd_ret = 1;
+			goto cleanup;
 		}
 	}
 
-	if (proc_stat_file_ptr)
-	{
-		fclose(proc_stat_file_ptr);
-	}
+	cleanup:
 
-	return 0;
+	synch->finished = 1;
+	if (cpu_info_ptr) free(cpu_info_ptr);
+	if (proc_stat_file_ptr){
+		if(fclose(proc_stat_file_ptr) == EOF){
+			ta_log("Error! Failed to close file");
+			thrd_ret = 1;
+		}
+	}
+	return thrd_ret;
 }
 
 int analyzer_fun(void* arg){
