@@ -26,8 +26,8 @@ ta_logger_msg* ta_logger_msg_new(char* msg){
 	new->time = time(0);
 	size_t msg_strlen = strlen(msg);
 	if(msg_strlen >= sizeof(new->msg)){
-		//add nuull
-		memcpy(new->msg,msg,sizeof(new->msg));
+		memcpy(new->msg,msg,sizeof(new->msg)-1);
+		new->msg[sizeof(new->msg)-1] = 0;
 	}else{
 		strcpy(new->msg, msg);
 	}
