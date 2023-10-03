@@ -14,6 +14,7 @@
 
 #define MAX_CPU_INFO_QUEUE_LEN 10
 
+#define READER_DELAY_SEC 1
 #define WATCHDOG_TIMEOUT_SEC 2
 
 ta_synch synch;
@@ -52,6 +53,7 @@ int reader_fun(void* arg){
 			free(cpu_info_ptr);
 			fclose(proc_stat_file_ptr);
 			proc_stat_file_ptr = 0;
+			thrd_sleep(&(struct timespec){.tv_sec=READER_DELAY_SEC}, NULL);
 			continue;
 		}
 
