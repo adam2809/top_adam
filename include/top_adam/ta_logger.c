@@ -5,7 +5,8 @@
 #include <string.h>
 #include <threads.h>
 #include <stdlib.h>
-#include "ta_queue.h"
+#include "ta_safe_queue.h"
+
 
 #define MAX_QUEUE_SIZE 50
 
@@ -62,19 +63,12 @@ int ta_logger_core(void* arg){
 			return 1;
 		}
 
-		mtx_lock(&log_queue_mtx);
-
-		if(ta_queue_is_empty(log_queue)){
-			cnd_wait(&log_queue_empty_cnd, &log_queue_mtx);
-		}
-		log_msg = ta_queue_pop(log_queue);
-		if(!log_msg){
-			continue;
-		}
-		cnd_signal(&log_queue_full_cnd);
-
-		mtx_unlock(&log_queue_mtx);
-
+		log_msg = ta_queue_safe_pop(
+			log_queue,
+			&log_queue_mtx,
+			&log_queue_full_cnd,
+			&log_queue_empty_cnd
+		);
 
 		fprintf(log_file_ptr,"[%ju] %s\n", (uintmax_t) log_msg->time, log_msg->msg);
 		fflush(log_file_ptr);
@@ -98,15 +92,13 @@ void ta_log(char* msg){
 		return;
 	}
 
-	mtx_lock(&log_queue_mtx);
-	if (ta_queue_is_full(log_queue))
-	{
-		cnd_wait(&log_queue_full_cnd,&log_queue_mtx);
-	}
-
-	ta_queue_append(log_queue,log_msg);
-	cnd_signal(&log_queue_empty_cnd);
-	mtx_unlock(&log_queue_mtx);
+	void* ret = ta_queue_safe_append(
+		log_queue,
+		log_msg,
+		&log_queue_mtx,
+		&log_queue_full_cnd,
+		&log_queue_empty_cnd
+	);
 	#endif
 }
 
