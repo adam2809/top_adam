@@ -246,9 +246,10 @@ int printer_fun(void* arg){
 		int i;
 		for (int i = 0; i < synch->print_buffer->len; i++){
 			to_print = ta_queue_elem(synch->print_buffer,i);
-			printf("cpu%d %.2f\n", i, *to_print);
+			printf("cpu%d=%.2f ", i, *to_print);
 		}
-		printf("---------------------\n");
+		printf("\r");
+		fflush(stdout);
 
 		if(mtx_unlock(&synch->print_buffer_mtx) != thrd_success){
 			ta_log("Error! Unlocking print buffer mutex failed");
