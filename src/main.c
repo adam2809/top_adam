@@ -360,6 +360,7 @@ void ta_synch_destroy(ta_synch* synch){
 }
 
 void finish(int signum){
+	puts("Got sigterm");
 	synch.finished = 1;
 	ta_logger_stop();
 }
@@ -426,16 +427,22 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	thrd_join(reader_thrd, 0);
-	thrd_join(analyzer_thrd, 0);
-	thrd_join(printer_thrd, 0);
-	thrd_join(watchdog_thrd, 0);
+	int reader_ret;
+	int analyzer_ret;
+	int printer_ret;
+	int watchdog_ret;
+	int logger_ret;
+
+	thrd_join(reader_thrd, &reader_ret);
+	thrd_join(analyzer_thrd, &analyzer_ret);
+	thrd_join(printer_thrd, &printer_ret);
+	thrd_join(watchdog_thrd, &watchdog_ret);
 #ifdef TA_LOGGER_ENABLE
-	thrd_join(logger_thrd, 0);
+	thrd_join(logger_thrd, &logger_ret);
 #endif
 
 	ta_synch_destroy(&synch);
 	ta_logger_destroy();
 
-	return 0;
+	return reader_ret | analyzer_ret | printer_ret | watchdog_ret | logger_ret;
 }
