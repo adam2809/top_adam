@@ -106,24 +106,35 @@ int reader_fun(void* arg){
 int analyzer_fun(void* arg){
 	ta_synch* synch = arg;
 
+	int thrd_ret = 0;
+	double* new_analyzed_value;
+
 	proc_stat_cpu_info* next;
 	proc_stat_cpu_info* prev;
-	ta_node* next_node;
-
 
 	ta_queue* prev_cpu_info_queue = ta_queue_new(-1);
 	if(!prev_cpu_info_queue){
-		return 1;
+		ta_log("Error! Could not create new prev cpu infos queue");
+		thrd_ret = 1;
+		goto cleanup;
 	}
 
 	while (!synch->finished)
 	{
+		prev = 0;
+		next = 0;
+
 		next = ta_queue_safe_pop(
 			synch->cpu_info_queue,
 			&synch->cpu_info_queue_mtx,
 			&synch->cpu_info_queue_full_cnd,
 			&synch->cpu_info_queue_empty_cnd
 		);
+		if(!next){
+			ta_log("Error! Could not get next cpu info from queue");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		int next_cpu_id = next->cpu_id;
 
 		ta_log("Analyzing next cpu info");
@@ -132,7 +143,16 @@ int analyzer_fun(void* arg){
 		if (!prev){
 			ta_log("Creating new prev entry");
 			prev = new_proc_stat_cpu_info();
-			if(!ta_queue_append(prev_cpu_info_queue,prev)) return 1;
+			if(!prev){
+				ta_log("Error! Could not allocate new prev entry");
+				thrd_ret = 1;
+				goto cleanup;
+			}
+			if(!ta_queue_append(prev_cpu_info_queue,prev)){
+				ta_log("Error! Could not append to prev queue");
+				thrd_ret = 1;
+				goto cleanup;
+			}
 		}
 
 		double next_analyzed = analyze_proc_stat_cpu_info(next,prev);
@@ -140,29 +160,61 @@ int analyzer_fun(void* arg){
 			continue;
 		}
 
-		memcpy(prev,next,sizeof(proc_stat_cpu_info));
+		if(memcpy(prev,next,sizeof(proc_stat_cpu_info)) == 0){
+			ta_log("Error! Comparing new cpu info and previous cpu info failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		free(next);
 
 		ta_log("Putting new analyzed value on print buffer");
 
-		mtx_lock(&synch->print_buffer_mtx);
+		if(mtx_lock(&synch->print_buffer_mtx) != thrd_success){
+			ta_log("Error! Locking print buffer mutex failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 
 		while (synch->print_buffer->len < prev_cpu_info_queue->len){
-			double* new = calloc(1,sizeof(double));
-			if(!new){
-				return 1;
+			new_analyzed_value = calloc(1,sizeof(double));
+			if(!new_analyzed_value){
+				ta_log("Error! Allocating new analyzed value failed");
+				thrd_ret = 1;
+				goto cleanup;
 			}
-			ta_queue_append(synch->print_buffer,new);
+			if(!ta_queue_append(synch->print_buffer,new_analyzed_value)){
+				ta_log("Error! Could not append to print buffer");
+				thrd_ret = 1;
+				goto cleanup;
+			}
 		}
 		double* next_analyzed_dest = ta_queue_elem(synch->print_buffer,next_cpu_id);
 		*next_analyzed_dest = next_analyzed;
-		cnd_signal(&synch->print_buffer_modified);
-		cnd_signal(&synch->watchdog_analyzer_cnd);
+
+		if(cnd_signal(&synch->print_buffer_modified) != thrd_success){
+			ta_log("Error! Could not signal that print buffer was modified");
+			thrd_ret = 1;
+			goto cleanup;
+		}
+		if(cnd_signal(&synch->watchdog_analyzer_cnd) != thrd_success){
+			ta_log("Error! Analyzer could signal to watchdog");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 		
-		mtx_unlock(&synch->print_buffer_mtx);
+		if(mtx_unlock(&synch->print_buffer_mtx) != thrd_success){
+			ta_log("Error! Unlocking print buffer mutex failed");
+			thrd_ret = 1;
+			goto cleanup;
+		}
 	}
 
-	return 0;
+	cleanup:
+	if(prev) free(prev);
+	if(prev_cpu_info_queue) ta_queue_destroy(prev_cpu_info_queue);
+	if(new_analyzed_value) free(new_analyzed_value);
+	synch->finished = 1;
+	return thrd_ret;
 }
 
 int printer_fun(void* arg){
