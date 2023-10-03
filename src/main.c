@@ -53,11 +53,11 @@ int reader_fun(void* arg){
 			free(cpu_info_ptr);
 			fclose(proc_stat_file_ptr);
 			proc_stat_file_ptr = 0;
-			cpu_info_ptr = 0;
+			continue;
 		}
 
 		ta_log("Putting new cpu info on queue");
-		ta_node* ret  = ta_queue_safe_append_nullable(
+		void* ret  = ta_queue_safe_append(
 			synch->cpu_info_queue,
 			cpu_info_ptr,
 			&synch->cpu_info_queue_mtx,
@@ -90,14 +90,13 @@ int analyzer_fun(void* arg){
 
 	while (!synch->finished)
 	{
-		next_node = ta_queue_safe_pop_nullable(
+		next = ta_queue_safe_pop(
 			synch->cpu_info_queue,
 			&synch->cpu_info_queue_mtx,
 			&synch->cpu_info_queue_full_cnd,
 			&synch->cpu_info_queue_empty_cnd
 		);
-		next = next_node->val;
-		free(next_node);
+		int next_cpu_id = next->cpu_id;
 
 		next_analyzed = calloc(1,sizeof(double));
 		if(next){
