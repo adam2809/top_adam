@@ -44,6 +44,10 @@ int reader_fun(void* arg){
 			free(cpu_info_ptr);
 			return 1;
 		}
+		if(res > 0 && cpu_info_ptr->cpu_id == -1){
+			free(cpu_info_ptr);
+			continue;
+		}
 		if(res == 0){
 			ta_log("Got to the end of procfs file");
 			free(cpu_info_ptr);
