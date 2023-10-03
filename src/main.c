@@ -102,11 +102,11 @@ int analyzer_fun(void* arg){
 		next_analyzed = calloc(1,sizeof(double));
 		if(next){
 			ta_log("Analyzing next cpu info");
-			prev = ta_queue_elem(synch->prev_cpu_info_queue,next->cpu_id);
+			prev = ta_queue_elem(synch->print_buffer,next->cpu_id);
 			if (!prev){
 				ta_log("Creating new prev entry");
 				proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
-				if(!ta_queue_append(synch->prev_cpu_info_queue,prev_new)) return 1;
+				if(!ta_queue_append(synch->print_buffer,prev_new)) return 1;
 				prev = prev_new;
 			}else{
 				ta_log("Found prev entry");
@@ -125,7 +125,7 @@ int analyzer_fun(void* arg){
 
 		ta_log("Putting new analyzed value on queue");
 		void* ret = ta_queue_safe_append(
-			synch->analyzed_queue,
+			synch->print_buffer,
 			next_analyzed,
 			&synch->analyzed_queue_mtx,
 			&synch->analyzed_queue_full_cnd,
@@ -149,7 +149,7 @@ int printer_fun(void* arg){
 	while (!synch->finished)
 	{
 		next = ta_queue_safe_pop(
-			synch->analyzed_queue,
+			synch->print_buffer,
 			&synch->analyzed_queue_mtx,
 			&synch->analyzed_queue_full_cnd,
 			&synch->analyzed_queue_empty_cnd
@@ -205,10 +205,9 @@ int ta_synch_init(ta_synch* synch){
 	memset(synch,0,sizeof(synch));
 
 	synch->cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
-	synch->analyzed_queue = ta_queue_new(MAX_ANALYZED_QUEUE_LEN);
-	synch->prev_cpu_info_queue = ta_queue_new(-1);
+	synch->print_buffer = ta_queue_new(MAX_ANALYZED_QUEUE_LEN);
 
-	if(!synch->cpu_info_queue || !synch->prev_cpu_info_queue){
+	if(!synch->cpu_info_queue || !synch->print_buffer){
 		return 1;
 	}
 
@@ -237,7 +236,7 @@ int ta_synch_init(ta_synch* synch){
 
 void ta_synch_destroy(ta_synch* synch){
 	ta_queue_destroy(synch->cpu_info_queue);
-	ta_queue_destroy(synch->prev_cpu_info_queue);
+	ta_queue_destroy(synch->print_buffer);
 
 	mtx_destroy(&synch->cpu_info_queue_mtx);
 	cnd_destroy(&synch->cpu_info_queue_full_cnd);

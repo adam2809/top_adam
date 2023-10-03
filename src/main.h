@@ -3,8 +3,7 @@
 
 typedef struct ta_synch{
 	ta_queue* cpu_info_queue;
-	ta_queue* analyzed_queue;
-	ta_queue* prev_cpu_info_queue;
+	ta_queue* print_buffer;
 
 	mtx_t cpu_info_queue_mtx;
 	mtx_t analyzed_queue_mtx;
