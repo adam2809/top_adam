@@ -12,8 +12,7 @@
 #define PROC_STAT_FILE_PATH "/proc/stat"
 #define PROC_STAT_MAX_LINE_LEN 1000
 
-#define MAX_CPU_INFO_QUEUE_LEN 1000
-#define MAX_ANALYZED_QUEUE_LEN 1000
+#define MAX_CPU_INFO_QUEUE_LEN 10
 
 #define WATCHDOG_TIMEOUT_SEC 2
 
@@ -86,7 +85,11 @@ int analyzer_fun(void* arg){
 	proc_stat_cpu_info* prev;
 	ta_node* next_node;
 
-	double* next_analyzed = 0;
+
+	ta_queue* prev_cpu_info_queue = ta_queue_new(-1);
+	if(!prev_cpu_info_queue){
+		return 1;
+	}
 
 	while (!synch->finished)
 	{
@@ -98,43 +101,40 @@ int analyzer_fun(void* arg){
 		);
 		int next_cpu_id = next->cpu_id;
 
-		next_analyzed = calloc(1,sizeof(double));
-		if(next){
-			ta_log("Analyzing next cpu info");
-			prev = ta_queue_elem(synch->print_buffer,next->cpu_id);
-			if (!prev){
-				ta_log("Creating new prev entry");
-				proc_stat_cpu_info* prev_new = new_proc_stat_cpu_info();
-				if(!ta_queue_append(synch->print_buffer,prev_new)) return 1;
-				prev = prev_new;
-			}else{
-				ta_log("Found prev entry");
-				if(memcmp(next,prev,sizeof(proc_stat_cpu_info)) == 0){
-					ta_log("Prev entry is the same as next");
-					free(next);
-					continue;
-				}
-			}
-			*next_analyzed = analyze_proc_stat_cpu_info(next,prev);
-			memcpy(prev,next,sizeof(proc_stat_cpu_info));
-			free(next);
-		}else{
-			*next_analyzed = -1.0;
+		ta_log("Analyzing next cpu info");
+
+		prev = ta_queue_elem(prev_cpu_info_queue,next_cpu_id);
+		if (!prev){
+			ta_log("Creating new prev entry");
+			prev = new_proc_stat_cpu_info();
+			if(!ta_queue_append(prev_cpu_info_queue,prev)) return 1;
 		}
 
-		ta_log("Putting new analyzed value on queue");
-		void* ret = ta_queue_safe_append(
-			synch->print_buffer,
-			next_analyzed,
-			&synch->analyzed_queue_mtx,
-			&synch->analyzed_queue_full_cnd,
-			&synch->analyzed_queue_empty_cnd
-		);
-		if(!ret){
-			ta_log("Error! Could not append to analyzed queue");
-			synch->finished = 1;
-			return 1;
+		double next_analyzed = analyze_proc_stat_cpu_info(next,prev);
+		if(next_analyzed < 0){
+			continue;
 		}
+
+		memcpy(prev,next,sizeof(proc_stat_cpu_info));
+		free(next);
+
+		ta_log("Putting new analyzed value on print buffer");
+
+		mtx_lock(&synch->print_buffer_mtx);
+
+		while (synch->print_buffer->len < prev_cpu_info_queue->len){
+			double* new = calloc(1,sizeof(double));
+			if(!new){
+				return 1;
+			}
+			ta_queue_append(synch->print_buffer,new);
+		}
+		double* next_analyzed_dest = ta_queue_elem(synch->print_buffer,next_cpu_id);
+		*next_analyzed_dest = next_analyzed;
+		cnd_signal(&synch->print_buffer_modified);
+		cnd_signal(&synch->watchdog_analyzer_cnd);
+		
+		mtx_unlock(&synch->print_buffer_mtx);
 	}
 
 	return 0;
@@ -147,23 +147,18 @@ int printer_fun(void* arg){
 
 	while (!synch->finished)
 	{
-		next = ta_queue_safe_pop(
-			synch->print_buffer,
-			&synch->analyzed_queue_mtx,
-			&synch->analyzed_queue_full_cnd,
-			&synch->analyzed_queue_empty_cnd
-		);
+		mtx_lock(&synch->print_buffer_mtx);
+		cnd_wait(&synch->print_buffer_modified,&synch->print_buffer_mtx);
 
-		if(*next >= 0.0){
-			ta_log("Printing processor usage");
-			printf("cpu%d %.2f\n", cpu_index, *next);
-			cpu_index++;
-		}else{
-			ta_log("Printing new file version");
-			printf("-----------------------\n");
-			cpu_index = 0;
+		ta_log("Printing processor usage");
+		double* to_print;
+		int i;
+		for (int i = 0; i < synch->print_buffer->len; i++){
+			to_print = ta_queue_elem(synch->print_buffer,i);
+			printf("cpu%d %.2f\n", i, *to_print);
 		}
-		free(next);
+		printf("---------------------\n");
+		mtx_unlock(&synch->print_buffer_mtx);
 	}
 }
 
@@ -204,7 +199,7 @@ int ta_synch_init(ta_synch* synch){
 	memset(synch,0,sizeof(synch));
 
 	synch->cpu_info_queue = ta_queue_new(MAX_CPU_INFO_QUEUE_LEN);
-	synch->print_buffer = ta_queue_new(MAX_ANALYZED_QUEUE_LEN);
+	synch->print_buffer = ta_queue_new(-1);
 
 	if(!synch->cpu_info_queue || !synch->print_buffer){
 		return 1;
@@ -213,11 +208,10 @@ int ta_synch_init(ta_synch* synch){
 	int ret = 0;
 
 	ret |= mtx_init(&synch->cpu_info_queue_mtx, mtx_plain);
-	ret |= mtx_init(&synch->analyzed_queue_mtx, mtx_plain);
+	ret |= mtx_init(&synch->print_buffer_mtx, mtx_plain);
 	ret |= cnd_init(&synch->cpu_info_queue_full_cnd);
 	ret |= cnd_init(&synch->cpu_info_queue_empty_cnd);
-	ret |= cnd_init(&synch->analyzed_queue_full_cnd);
-	ret |= cnd_init(&synch->analyzed_queue_empty_cnd);
+	ret |= cnd_init(&synch->print_buffer_modified);
 
 	ret |= mtx_init(&synch->watchdog_mtx, mtx_plain);
 	ret |= cnd_init(&synch->watchdog_reader_cnd);
@@ -240,8 +234,7 @@ void ta_synch_destroy(ta_synch* synch){
 	mtx_destroy(&synch->cpu_info_queue_mtx);
 	cnd_destroy(&synch->cpu_info_queue_full_cnd);
 	cnd_destroy(&synch->cpu_info_queue_empty_cnd);
-	cnd_destroy(&synch->analyzed_queue_full_cnd);
-	cnd_destroy(&synch->analyzed_queue_empty_cnd);
+	cnd_destroy(&synch->print_buffer_modified);
 
 	mtx_destroy(&synch->watchdog_mtx);
 	cnd_destroy(&synch->watchdog_reader_cnd);
